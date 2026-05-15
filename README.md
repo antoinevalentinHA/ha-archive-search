@@ -6,7 +6,7 @@ Infrastructure-side search engine for archived Home Assistant versions.
 
 The project provides:
 
-- a filesystem search engine;
+- a corpus search engine;
 - a CLI search interface;
 - a lightweight web application;
 - Markdown export capabilities;
@@ -28,7 +28,7 @@ Home Assistant is optimized for real-time automation and operational dashboards.
 - long-term auditability;
 - large-scale textual search across archived versions.
 
-The search system intentionally runs outside Home Assistant.
+The search system intentionally operates outside Home Assistant infrastructure.
 
 ---
 
@@ -79,8 +79,7 @@ Search engine
 - version-aware archive traversal;
 - text-based filtering with documentation scope control;
 - Markdown export;
-- Docker deployment;
-- web interface accessible over LAN and VPN.
+- Docker deployment.
 
 ### Planned
 
@@ -89,6 +88,12 @@ Search engine
 - archive metadata search;
 - MQTT supervision;
 - search statistics.
+
+---
+
+## Deployment
+
+The web application runs as a Docker container on the same infrastructure as the archive corpus (typically a NAS system). It is accessible over LAN and VPN. No public exposure is supported or intended.
 
 ---
 
