@@ -32,6 +32,11 @@ Initial release.
   - Markdown export: minimal envelope around exact engine stdout. No parsing, no reformatting.
   - Mono-process threading lock with explicit multi-worker warning.
   - No client-side JavaScript. No application authentication. HTTP only (LAN/VPN perimeter).
+- `src/ha_archive_search/templates/index.html`: server-rendered search form.
+  - Fields: query, context mode, latest only, all versions, exclude documentation, documentation only.
+  - Results rendered as raw `<pre>` block — engine stdout displayed as-is, no parsing.
+  - Error block for validation and engine errors.
+  - Responsive layout. No JavaScript.
 
 #### Package
 
