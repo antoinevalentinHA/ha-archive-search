@@ -19,7 +19,7 @@ The system is designed to replace ad-hoc local search scripts and enables consul
 - web browser;
 - local network or VPN.
 
-`ha-archive-search` is not limited to Home Assistant entity search. It is a general-purpose textual search and audit engine operating on archived configuration corpora.
+`ha-archive-search` is not limited to Home Assistant entity search. It is a textual search and audit engine designed for archived configuration corpora.
 
 ---
 
@@ -58,7 +58,7 @@ The engine produces no Home Assistant decisions.
 | Diff engine            | Inter-version diff generation           |
 | CLI engine             | Bounded search engine                   |
 | Flask UI               | HTML presentation and Markdown export   |
-| Docker                 | Runtime isolation                       |
+| Containerized execution environment | Runtime boundary                        |
 | VPN / LAN              | Network access control                  |
 
 The web layer makes no decisions, parses no business logic, and never modifies data. It orchestrates, presents, and encapsulates. The CLI engine remains the functional authority.
@@ -74,7 +74,7 @@ Hard contracts of the domain. All evolutions must preserve them.
 - **No free shell**: the user submits a query, never a command. The query is never interpreted as a system command.
 - **No public exposure**: LAN or VPN access only. No public reverse proxy, no external exposure.
 - **Bounded results**: result count, context depth, and search duration are server-enforced hard limits, non-negotiable by the client.
-- **Docker isolation**: the web service mounts `versions/` and the CLI engine read-only and has no other filesystem access.
+- **Containerized execution environment**: the web service mounts `versions/` and the CLI engine read-only and has no other filesystem access.
 - **Engine authority**: the webapp never reimplements search logic. All search passes through the CLI engine. Markdown export wraps the engine stdout without parsing, reformatting, or aggregating it.
 
 ---
