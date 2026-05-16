@@ -12,26 +12,13 @@ from flask import Flask, Response, jsonify, redirect, render_template, request, 
 
 APP_NAME = "ha-archive-search"
 VERSIONS_ROOT = Path(os.environ.get("HA_SEARCH_VERSIONS_ROOT", "/versions"))
-SEARCH_CLI = Path(os.environ.get("HA_SEARCH_CLI", "/app/engine.py"))
+SEARCH_CLI = Path(os.environ.get("HA_SEARCH_CLI", "/usr/local/bin/ha-archive-search"))
 TIMEOUT_SECONDS = int(os.environ.get("HA_SEARCH_TIMEOUT", "15"))
 MAX_QUERY_LEN = int(os.environ.get("HA_SEARCH_MAX_QUERY_LEN", "200"))
 
 app = Flask(__name__)
 
-# V1 mono-process only: valid with CMD ["python3", "/app/webapp.py"].
-# Do not switch to multi-worker without an inter-process lock or stateless strategy.
 _search_lock = threading.Lock()
-
-COMPACT_LINE_RE = re.compile(
-    r"^\[(?P<version>[^\]]+)\]\s+"
-    r"(?P<path>.*?):"
-    r"(?P<line>\d+):"
-    r"(?P<content>.*)$"
-)
-
-SUMMARY_RE = re.compile(
-    r"(?P<count>\d+)\s+results?\s+across\s+(?P<versions>\d+)\s+versions?\s+•\s+duration\s+(?P<duration>[0-9.,]+)\s+s"
-)
 
 SLUG_RE = re.compile(r"[^a-z0-9_-]+")
 UNDERSCORE_RE = re.compile(r"_+")
@@ -79,8 +66,6 @@ def markdown_fence_for(content: str) -> str:
 
 
 def build_markdown_export(query: str, options: dict[str, bool], stdout: str) -> str:
-    # stdout captured via subprocess.run(..., capture_output=True) is non-TTY
-    # by construction — engine outputs monochrome text. No ANSI sanitization needed.
     fence = markdown_fence_for(stdout)
     stdout_block = stdout if stdout.endswith("\n") else f"{stdout}\n"
 
@@ -90,6 +75,7 @@ def build_markdown_export(query: str, options: dict[str, bool], stdout: str) -> 
         f"- Query: {markdown_inline_code(query)}\n"
         f"- Context: {markdown_inline_code(bool_label(options.get('context', False)))}\n"
         f"- Latest only: {markdown_inline_code(bool_label(options.get('latest', False)))}\n"
+        f"- All versions: {markdown_inline_code(bool_label(options.get('all_versions', False)))}\n"
         f"- Documentation: {markdown_inline_code(documentation_label(options))}\n"
         f"- Export date: {markdown_inline_code(now_timestamp())}\n"
         "\n"
@@ -116,9 +102,13 @@ def validate_form() -> tuple[str, dict[str, bool], str]:
     options = {
         "context": bool_from_form("context"),
         "latest": bool_from_form("latest"),
+        "all_versions": bool_from_form("all_versions"),
         "exclude_docs": bool_from_form("exclude_docs"),
         "docs_only": bool_from_form("docs_only"),
     }
+
+    if options["latest"] and options["all_versions"]:
+        return "", {}, "Incompatible options: latest only and all versions."
 
     if options["exclude_docs"] and options["docs_only"]:
         return "", {}, "Incompatible options: exclude documentation and documentation only."
@@ -129,13 +119,10 @@ def validate_form() -> tuple[str, dict[str, bool], str]:
 def build_command(query: str, options: dict[str, bool]) -> list[str]:
     cmd = ["python3", str(SEARCH_CLI), "--query", query]
 
-    # Webapp UX default: without "Latest version only" checked,
-    # search all versions (--all-versions).
-    # The CLI engine default is different (--latest implicit).
-    if options.get("latest"):
-        cmd.append("--latest")
-    else:
+    if options.get("all_versions"):
         cmd.append("--all-versions")
+    elif options.get("latest"):
+        cmd.append("--latest")
 
     if options.get("exclude_docs"):
         cmd.append("--exclude-docs")
@@ -193,55 +180,14 @@ def empty_template(**kwargs):
         "query": "",
         "output": "",
         "error": "",
-        "parsed": None,
-        "summary": None,
         "context": False,
         "latest": False,
+        "all_versions": False,
         "exclude_docs": False,
         "docs_only": False,
     }
     defaults.update(kwargs)
     return render_template("index.html", **defaults)
-
-
-def parse_compact_output(output: str):
-    grouped = {}
-    summary = None
-    parsed_count = 0
-
-    for raw_line in output.splitlines():
-        line = raw_line.rstrip("\n")
-
-        m_summary = SUMMARY_RE.search(line)
-        if m_summary:
-            summary = {
-                "count": m_summary.group("count"),
-                "versions": m_summary.group("versions"),
-                "duration": m_summary.group("duration").replace(",", "."),
-            }
-            continue
-
-        if not line or line.startswith("─") or line.startswith("═"):
-            continue
-
-        m = COMPACT_LINE_RE.match(line)
-        if not m:
-            continue
-
-        version = m.group("version")
-        path = m.group("path")
-        line_no = m.group("line")
-        content = m.group("content").rstrip()
-
-        grouped.setdefault(version, {}).setdefault(path, []).append(
-            {"line": line_no, "content": content}
-        )
-        parsed_count += 1
-
-    if parsed_count == 0:
-        return None, summary
-
-    return grouped, summary
 
 
 @app.get("/")
@@ -263,7 +209,7 @@ def search():
             query=query,
             output="",
             error=validation_error,
-            **{k: bool(options.get(k, False)) for k in ("context", "latest", "exclude_docs", "docs_only")},
+            **{k: bool(options.get(k, False)) for k in ("context", "latest", "all_versions", "exclude_docs", "docs_only")},
         ), 400
 
     result, error, status_code = run_search_cli(query, options)
@@ -272,17 +218,10 @@ def search():
 
     output = result.stdout.strip() or "No results."
 
-    parsed = None
-    summary = None
-    if not options.get("context"):
-        parsed, summary = parse_compact_output(output)
-
     return empty_template(
         query=query,
         output=output,
         error="",
-        parsed=parsed,
-        summary=summary,
         **options,
     )
 
@@ -301,7 +240,7 @@ def export_markdown():
             query=query,
             output="",
             error=validation_error,
-            **{k: bool(options.get(k, False)) for k in ("context", "latest", "exclude_docs", "docs_only")},
+            **{k: bool(options.get(k, False)) for k in ("context", "latest", "all_versions", "exclude_docs", "docs_only")},
         ), 400
 
     result, error, status_code = run_search_cli(query, options)

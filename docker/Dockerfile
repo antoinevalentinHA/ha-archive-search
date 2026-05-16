@@ -13,7 +13,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ripgrep \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml /app/pyproject.toml
+COPY pyproject.toml README.md LICENSE /app/
 COPY src /app/src
 
 RUN pip install --no-cache-dir .
