@@ -39,7 +39,7 @@ dependencies = [
 Repository = "https://github.com/antoinevalentinHA/ha-archive-search"
 
 [project.scripts]
-ha-archive-search = "ha_archive_search.cli:main"
+ha-archive-search = "ha_archive_search.engine:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
