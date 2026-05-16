@@ -7,7 +7,7 @@ services:
       - "8099:8099"
     environment:
       HA_SEARCH_VERSIONS_ROOT: /versions
-      HA_SEARCH_CLI: /app/engine.py
+      HA_SEARCH_CLI: /usr/local/bin/ha-archive-search
       HA_SEARCH_TIMEOUT: "15"
       HA_SEARCH_MAX_QUERY_LEN: "200"
     # On Synology DSM, ensure this path is readable by the container user.
