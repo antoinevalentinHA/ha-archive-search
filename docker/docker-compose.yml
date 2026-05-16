@@ -10,5 +10,6 @@ services:
       HA_SEARCH_CLI: /app/engine.py
       HA_SEARCH_TIMEOUT: "15"
       HA_SEARCH_MAX_QUERY_LEN: "200"
+    # On Synology DSM, ensure this path is readable by the container user.
     volumes:
       - /path/to/versions:/versions:ro

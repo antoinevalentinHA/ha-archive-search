@@ -80,6 +80,18 @@ ha_archive_search_web
 
 No other mounts. The container has no other filesystem access.
 
+### Synology DSM / ACL note
+
+On Synology DSM, ACLs may prevent the container user from reading the mounted `versions/` directory even when the volume is mounted read-only.
+
+If `/versions` is visible but not readable from inside the container, use one of the following approaches:
+
+- mount a directory whose Unix permissions are readable by the container user;
+- adjust DSM permissions / ACLs for the archive directory;
+- configure the container with an explicit `user: "<uid>:<gid>"` matching an account allowed to read the archive corpus.
+
+The project does not require write access to the archive corpus.
+
 ### Environment variables
 
 | Variable                  | Default value      |
