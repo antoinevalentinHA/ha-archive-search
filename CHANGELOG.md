@@ -20,7 +20,6 @@ Initial release.
   - Perimeter guard: all paths verified against `VERSIONS_ROOT` via `os.path.realpath()` before any read.
   - Result bounds: configurable with server-enforced hard ceilings (results: 2000, context: 50 lines, timeout: 30 s).
   - Color output: automatic TTY detection via `sys.stdout.isatty()`. No user flag.
-  - Debug mode: `HA_SEARCH_DEBUG=1` re-raises unhandled exceptions for development.
   - Exit codes: `0` (ok), `1` (usage error), `2` (environment error), `3` (timeout).
   - stdlib only. No third-party dependency.
 
@@ -45,12 +44,12 @@ Initial release.
 
 #### Docker
 
-- `docker/Dockerfile`: image built via `pip install .`, served via `python3 -m ha_archive_search.webapp`.
-- `docker/docker-compose.yml`: single-service stack, `versions/` mounted read-only.
+- `docker/Dockerfile`: Python 3.11-slim image with ripgrep installed. Built via `pip install .`, served via `python3 -m ha_archive_search.webapp`.
+- `docker/docker-compose.yml`: single-service stack, `versions/` mounted read-only. `HA_SEARCH_CLI` points to the installed entry point `/usr/local/bin/ha-archive-search`.
 
 #### Documentation
 
 - `README.md`: project overview, philosophy, integration contract, architecture, features, deployment.
 - `docs/vision_domaine.md`: domain vision — invariants, architecture by phase, security surface, non-goals.
 - `docs/contrat_moteur_cli.md`: CLI engine contract — backend, version resolution, perimeter guards, output format, exit codes.
-- `docs/contrat_webapp.md`: webapp contract — routes, form validation, Markdown export, UI invariants, Docker boundary.
+- `docs/contrat_webapp.md`: webapp contract — routes, form validation, Markdown export, UI invariants, Docker boundary. Includes Synology DSM/ACL deployment note.
