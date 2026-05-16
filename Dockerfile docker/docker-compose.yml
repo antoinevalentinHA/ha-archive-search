@@ -1,0 +1,14 @@
+services:
+  ha_archive_search_web:
+    build: .
+    container_name: ha_archive_search_web
+    restart: unless-stopped
+    ports:
+      - "8099:8099"
+    environment:
+      HA_SEARCH_VERSIONS_ROOT: /versions
+      HA_SEARCH_CLI: /app/engine.py
+      HA_SEARCH_TIMEOUT: "15"
+      HA_SEARCH_MAX_QUERY_LEN: "200"
+    volumes:
+      - /path/to/versions:/versions:ro
