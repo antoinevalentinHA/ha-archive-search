@@ -9,6 +9,10 @@ ENV HA_SEARCH_MAX_QUERY_LEN=200
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ripgrep \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY pyproject.toml /app/pyproject.toml
 COPY src /app/src
 
