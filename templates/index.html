@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ app_name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --text: #1f2933;
+      --muted: #5f6b7a;
+      --border: #d8dee7;
+      --accent: #2f6fed;
+      --error-bg: #fff1f2;
+      --error-border: #fb7185;
+      --result-bg: #111827;
+      --result-text: #e5e7eb;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header { margin-bottom: 20px; }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 28px;
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .panel,
+    .result-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+
+    label {
+      font-weight: 600;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 16px;
+      background: #fff;
+    }
+
+    .options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fafafa;
+      font-size: 14px;
+    }
+
+    .option input { margin: 0; }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      padding: 12px 18px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .secondary-button {
+      background: #475569;
+    }
+
+    .block { margin-top: 20px; }
+
+    pre.raw,
+    pre.error {
+      margin: 0;
+      padding: 16px;
+      border-radius: 12px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .raw {
+      background: var(--result-bg);
+      color: var(--result-text);
+      border: 1px solid #374151;
+    }
+
+    .error {
+      background: var(--error-bg);
+      color: #7f1d1d;
+      border: 1px solid var(--error-border);
+    }
+
+    .footer {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 700px) {
+      body { padding: 14px; }
+      h1 { font-size: 23px; }
+      .panel, .result-panel { padding: 14px; }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <header>
+      <h1>{{ app_name }}</h1>
+      <p class="subtitle">Search across archived Home Assistant versions.</p>
+    </header>
+
+    <section class="panel">
+      <form method="post" action="/search">
+        <label for="query">Query</label>
+        <input
+          id="query"
+          name="query"
+          type="text"
+          maxlength="200"
+          value="{{ query }}"
+          autocomplete="off"
+          autofocus
+          required
+        >
+
+        <div class="options">
+          <label class="option">
+            <input type="checkbox" name="context" {% if context %}checked{% endif %}>
+            Context mode
+          </label>
+
+          <label class="option">
+            <input type="checkbox" name="latest" {% if latest %}checked{% endif %}>
+            Latest version only
+          </label>
+
+          <label class="option">
+            <input type="checkbox" name="all_versions" {% if all_versions %}checked{% endif %}>
+            All versions
+          </label>
+
+          <label class="option">
+            <input type="checkbox" name="exclude_docs" {% if exclude_docs %}checked{% endif %}>
+            Exclude documentation
+          </label>
+
+          <label class="option">
+            <input type="checkbox" name="docs_only" {% if docs_only %}checked{% endif %}>
+            Documentation only
+          </label>
+        </div>
+
+        <div class="actions">
+          <button type="submit">Search</button>
+          <button type="submit" formaction="/export" class="secondary-button">Download Markdown</button>
+        </div>
+      </form>
+
+      <p class="footer">
+        LAN/VPN access only. No free shell. Perimeter enforced server-side.
+      </p>
+    </section>
+
+    {% if output %}
+      <section class="result-panel block">
+        <pre class="raw">{{ output }}</pre>
+      </section>
+    {% elif error %}
+      <section class="result-panel block">
+        <pre class="error">{{ error }}</pre>
+      </section>
+    {% endif %}
+  </main>
+</body>
+</html>
