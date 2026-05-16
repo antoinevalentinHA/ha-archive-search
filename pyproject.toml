@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ha-archive-search"
+version = "0.1.0"
+description = "Infrastructure-side search engine for archived Home Assistant versions"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "GPL-3.0-only" }
+
+authors = [
+    { name = "Antoine Valentin" }
+]
+
+keywords = [
+    "home-assistant",
+    "search",
+    "archive",
+    "forensics",
+    "nas",
+    "docker"
+]
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent"
+]
+
+dependencies = [
+    "flask>=3.0.0"
+]
+
+[project.urls]
+Repository = "https://github.com/antoinevalentinHA/ha-archive-search"
+
+[project.scripts]
+ha-archive-search = "ha_archive_search.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
