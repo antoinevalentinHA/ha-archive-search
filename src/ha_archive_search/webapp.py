@@ -22,6 +22,17 @@ app = Flask(__name__)
 # Do not switch to multi-worker without an inter-process lock or stateless strategy.
 _search_lock = threading.Lock()
 
+COMPACT_LINE_RE = re.compile(
+    r"^\[(?P<version>[^\]]+)\]\s+"
+    r"(?P<path>.*?):"
+    r"(?P<line>\d+):"
+    r"(?P<content>.*)$"
+)
+
+SUMMARY_RE = re.compile(
+    r"(?P<count>\d+)\s+results?\s+across\s+(?P<versions>\d+)\s+versions?\s+•\s+duration\s+(?P<duration>[0-9.,]+)\s+s"
+)
+
 SLUG_RE = re.compile(r"[^a-z0-9_-]+")
 UNDERSCORE_RE = re.compile(r"_+")
 
@@ -182,6 +193,8 @@ def empty_template(**kwargs):
         "query": "",
         "output": "",
         "error": "",
+        "parsed": None,
+        "summary": None,
         "context": False,
         "latest": False,
         "exclude_docs": False,
@@ -189,6 +202,46 @@ def empty_template(**kwargs):
     }
     defaults.update(kwargs)
     return render_template("index.html", **defaults)
+
+
+def parse_compact_output(output: str):
+    grouped = {}
+    summary = None
+    parsed_count = 0
+
+    for raw_line in output.splitlines():
+        line = raw_line.rstrip("\n")
+
+        m_summary = SUMMARY_RE.search(line)
+        if m_summary:
+            summary = {
+                "count": m_summary.group("count"),
+                "versions": m_summary.group("versions"),
+                "duration": m_summary.group("duration").replace(",", "."),
+            }
+            continue
+
+        if not line or line.startswith("─") or line.startswith("═"):
+            continue
+
+        m = COMPACT_LINE_RE.match(line)
+        if not m:
+            continue
+
+        version = m.group("version")
+        path = m.group("path")
+        line_no = m.group("line")
+        content = m.group("content").rstrip()
+
+        grouped.setdefault(version, {}).setdefault(path, []).append(
+            {"line": line_no, "content": content}
+        )
+        parsed_count += 1
+
+    if parsed_count == 0:
+        return None, summary
+
+    return grouped, summary
 
 
 @app.get("/")
@@ -219,10 +272,17 @@ def search():
 
     output = result.stdout.strip() or "No results."
 
+    parsed = None
+    summary = None
+    if not options.get("context"):
+        parsed, summary = parse_compact_output(output)
+
     return empty_template(
         query=query,
         output=output,
         error="",
+        parsed=parsed,
+        summary=summary,
         **options,
     )
 
