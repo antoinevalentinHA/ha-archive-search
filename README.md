@@ -97,6 +97,38 @@ The web application runs as a Docker container on the same infrastructure as the
 
 ---
 
+## Synology DSM deployment
+
+A dedicated Synology compose example is provided:
+
+```text
+docker/docker-compose.synology.yml
+```
+
+### Why a Synology-specific compose file exists
+
+Many Synology DSM shared folders use restrictive ACLs which prevent
+non-root container users from traversing mounted paths.
+
+Typical error:
+
+```text
+[ha-archive-search] perimeter error:
+[Errno 13] Permission denied: '/versions'
+```
+
+The Synology compose example explicitly runs the container as root:
+
+```yaml
+user: "0:0"
+```
+
+This avoids traversal failures on DSM-mounted shared folders.
+
+Advanced users may replace this with a custom UID:GID mapping.
+
+---
+
 ## Repository structure
 
 ```text

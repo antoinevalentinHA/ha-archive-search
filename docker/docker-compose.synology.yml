@@ -1,0 +1,34 @@
+services:
+  ha_archive_search_web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+
+    container_name: ha_archive_search_web
+
+    restart: unless-stopped
+
+    # ==========================================================
+    # Synology DSM compatibility
+    # ----------------------------------------------------------
+    # Many DSM shared folders use restrictive ACLs which prevent
+    # non-root container users from traversing mounted paths.
+    #
+    # Running as root avoids:
+    #   Permission denied: '/versions'
+    #
+    # Advanced users may replace this with a specific UID:GID.
+    # ==========================================================
+    user: "0:0"
+
+    ports:
+      - "8099:8099"
+
+    environment:
+      HA_SEARCH_VERSIONS_ROOT: /versions
+      HA_SEARCH_CLI: /usr/local/bin/ha-archive-search
+      HA_SEARCH_TIMEOUT: "60"
+      HA_SEARCH_MAX_QUERY_LEN: "200"
+
+    volumes:
+      - /volume1/Backups_HA/ha_backup_timeline/versions:/versions:ro

@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.2.1] — 2026-05-17
+
+### Added
+
+#### Docker / Deployment
+
+- `docker/docker-compose.synology.yml`
+  - Dedicated Synology DSM deployment example.
+  - Documents DSM ACL traversal limitations on mounted shared folders.
+  - Explicit `user: "0:0"` compatibility override for restrictive DSM ACL environments.
+
+### Changed
+
+#### Documentation
+
+- `README.md`
+  - Added Synology DSM deployment section.
+  - Documented typical `/versions` permission failure on DSM systems.
+  - Clarified rationale for root container execution on DSM deployments.
+
+---
+
 ## [0.2.0] — 2026-05-17
 
 ### Added
