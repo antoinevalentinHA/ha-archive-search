@@ -4,6 +4,66 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased]
+
+### Internal — v0.3.0 Phase A (integrated)
+
+Foundation work for the v0.3.0 structured Markdown export. No user-visible
+change: `/search` HTML and `/export` Markdown output are strictly identical
+to v0.2.1 on equivalent inputs.
+
+#### Changed
+
+- `webapp.py`: `parse_compact_output()` reworked to return a typed immutable
+  model instead of `tuple[dict | None, dict | None]`.
+- `webapp.py`: introduction of frozen dataclasses as the contract between
+  `parse_compact_output()` and renderers.
+  - `Hit(line: int, content: str)`.
+  - `FileResult(path: str, hits: tuple[Hit, ...])`.
+  - `VersionResult(version: str, files: tuple[FileResult, ...])`.
+  - `Summary(count: int, versions: int, duration: str)`.
+  - `ParsedResults(versions: tuple[VersionResult, ...], summary: Summary | None)`.
+- `webapp.py`: `Hit.line` typed as `int` (was `str` in v0.2.x by typing
+  laziness). `Summary.count` and `Summary.versions` typed as `int`.
+  `Summary.duration` kept as `str` to preserve engine precision without
+  float-cast rounding.
+- `webapp.py`: empty result set now returns `ParsedResults(versions=(),
+  summary=...)` instead of the `(None, summary)` sentinel. No more `None`
+  special case for the renderer.
+- `webapp.py`: route `/search` adapted to the typed model. Local variable
+  `summary` removed; accessed via `parsed.summary` in the template.
+- `templates/index.html`: adapted to consume `ParsedResults`
+  (`parsed.versions`, `v.version`, `v.files`, `f.path`, `f.hits`,
+  `parsed.summary`). Pluralization check on `parsed.summary.versions`
+  switched from `!= "1"` to `!= 1` to match the new int typing.
+- HTML render: visually and functionally equivalent to v0.2.1, validated
+  by sandbox non-regression harness (6 fixtures) and smoke test on the
+  production NAS.
+
+#### Unchanged
+
+- `engine.py`: no change.
+- `/export` route and `build_markdown_export()`: untouched. Markdown output
+  is byte-equivalent to v0.2.1 (modulo the `Export date` timestamp).
+- `__init__.py`: version still `0.2.1`. No version bump in Phase A.
+- `pyproject.toml`: version still `0.2.1`.
+- `docs/contrat_webapp.md`: not amended. The contract still describes the
+  v0.2.x behavior. Amendment will land in Phase C, together with the
+  effective `/export` behavior change.
+- `README.md`: not amended. Same rationale.
+
+#### Notes
+
+- Phase A is a structural refactor only. Phase B (structured Markdown
+  renderer) and Phase C (version bump, contract amendment, README,
+  CHANGELOG consolidation) remain to be done before v0.3.0 can be cut.
+- The internal typed model is exposed via `webapp.py` only. It is not
+  re-exported from `__init__.py` in Phase A; the re-export with the
+  *no backward compatibility guarantee before v1.0* marker will land in
+  Phase C alongside the version bump.
+
+---
+
 ## [0.2.1] — 2026-05-17
 
 ### Added

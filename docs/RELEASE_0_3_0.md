@@ -1,3 +1,19 @@
+## État d'avancement
+
+| Phase | Périmètre | Statut |
+|---|---|---|
+| **A** | Modèle typé `ParsedResults`, refonte `parse_compact_output()`, adaptation `/search` et `templates/index.html`. Aucun changement visible. | **Intégrée** — commit `72cdcad`. Validée par harnais de non-régression sandbox (6 fixtures, 9 tests modèle) puis smoke test sur l'instance NAS (`/search` compact + contexte, `/export` v0.2.x byte-équivalent hors timestamp). |
+| **B** | Refonte `build_markdown_export()` : helpers `render_markdown_query/summary/results`, généralisation `markdown_inline_code()` pour runs de backticks arbitraires, consommation du modèle typé. | À faire. Aucune touche prévue à `index.html` ni à `engine.py`. |
+| **C** | Bump version `0.3.0`, re-export des dataclasses dans `__init__.py` avec marqueur `Internal model — no backward compatibility guarantee before v1.0`, amendement `docs/contrat_webapp.md`, mise à jour `README.md`, consolidation de l'entrée CHANGELOG `[Unreleased]` en `[0.3.0]`. | À faire. |
+
+**Notes** :
+
+- Tant que la Phase C n'est pas livrée, le package reste estampillé `0.2.1`. Le contrat webapp v1 reste en vigueur tel quel : `/export` se comporte toujours en v0.2.x, l'amendement n'est pas encore actif.
+- L'entrée CHANGELOG `[Unreleased]` documente la Phase A comme socle interne déjà intégré. Elle sera fusionnée dans l'entrée `[0.3.0]` finale au moment du bump.
+- Le présent document reste la spec de référence. Les sections §1 à §15 sont **non amendées** par cette note d'état : elles décrivent la cible v0.3.0 complète, pas l'incrément Phase A.
+
+---
+
 # ha-archive-search — Plan de release v0.3.0
 
 ## Objectif
