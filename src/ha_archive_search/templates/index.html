@@ -323,29 +323,29 @@
       </p>
     </section>
 
-    {% if parsed %}
+    {% if parsed.versions %}
       <section class="result-panel block">
-        {% if summary %}
+        {% if parsed.summary %}
           <div class="summary">
-            <span class="badge">{{ summary.count }} results</span>
-            <span class="badge">{{ summary.versions }} version{% if summary.versions != "1" %}s{% endif %}</span>
-            <span class="badge">{{ summary.duration }} s</span>
+            <span class="badge">{{ parsed.summary.count }} results</span>
+            <span class="badge">{{ parsed.summary.versions }} version{% if parsed.summary.versions != 1 %}s{% endif %}</span>
+            <span class="badge">{{ parsed.summary.duration }} s</span>
           </div>
         {% endif %}
     
-        {% for version, files in parsed.items() %}
+        {% for v in parsed.versions %}
           <div class="version-block">
-            <div class="version-title">{{ version }}</div>
+            <div class="version-title">{{ v.version }}</div>
     
-            {% for path, hits in files.items() %}
+            {% for f in v.files %}
               <details class="file-block" open>
                 <summary>
-                  <span class="file-path">{{ path }}</span>
-                  <span class="file-count">{{ hits|length }} occurrence{% if hits|length > 1 %}s{% endif %}</span>
+                  <span class="file-path">{{ f.path }}</span>
+                  <span class="file-count">{{ f.hits|length }} occurrence{% if f.hits|length > 1 %}s{% endif %}</span>
                 </summary>
     
                 <div class="hits">
-                  {% for hit in hits %}
+                  {% for hit in f.hits %}
                     <div class="hit">
                       <div class="line-no">L{{ hit.line }}</div>
                       <pre class="line-content">{{ hit.content }}</pre>

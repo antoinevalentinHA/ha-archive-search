@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import threading
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -33,6 +34,59 @@ COMPACT_LINE_RE = re.compile(
 SUMMARY_RE = re.compile(
     r"(?P<count>\d+)\s+results?\s+across\s+(?P<versions>\d+)\s+versions?\s+•\s+duration\s+(?P<duration>[0-9.,]+)\s+s"
 )
+
+
+# ---------------------------------------------------------------------------
+# Internal typed model (v0.3.0).
+#
+# Contract between parse_compact_output() and renderers (HTML / Markdown).
+# Frozen dataclasses: structural immutability is part of the contract — the
+# renderer cannot mutate by inadvertence.
+#
+# Tuples (not lists): signal of "structure fixed at construction time",
+# aligned with frozen=True.
+#
+# line: int — line_no was str in v0.2.0 by typing laziness; conversion is
+# safe because COMPACT_LINE_RE captures \d+.
+#
+# duration: str — preserves the exact precision emitted by the engine
+# (locale handling via .replace(",", ".")). No float cast that would
+# introduce rounding.
+#
+# This is an internal model exposed for testability only.
+# No backward compatibility guarantee before v1.0.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Hit:
+    line: int
+    content: str
+
+
+@dataclass(frozen=True)
+class FileResult:
+    path: str
+    hits: tuple[Hit, ...]
+
+
+@dataclass(frozen=True)
+class VersionResult:
+    version: str
+    files: tuple[FileResult, ...]
+
+
+@dataclass(frozen=True)
+class Summary:
+    count: int
+    versions: int
+    duration: str
+
+
+@dataclass(frozen=True)
+class ParsedResults:
+    versions: tuple[VersionResult, ...]
+    summary: Summary | None
 
 
 def now_timestamp() -> str:
@@ -77,6 +131,7 @@ def markdown_fence_for(content: str) -> str:
 
 
 def build_markdown_export(query: str, options: dict[str, bool], stdout: str) -> str:
+    # Phase A: unchanged. Refonte en Phase B.
     fence = markdown_fence_for(stdout)
     stdout_block = stdout if stdout.endswith("\n") else f"{stdout}\n"
 
@@ -185,29 +240,26 @@ def run_search_cli(
         _search_lock.release()
 
 
-def parse_compact_output(output: str) -> tuple[dict | None, dict | None]:
-    """Parse le stdout compact du moteur en structure hiérarchique.
+def parse_compact_output(output: str) -> ParsedResults:
+    """Parse le stdout compact du moteur en structure typée immuable.
 
-    Retourne (grouped, summary) où :
-      - grouped = {version: {path: [{"line": str, "content": str}, ...]}}
-      - summary = {"count": str, "versions": str, "duration": str} ou None
-
-    Retourne (None, summary) si aucun match parsé (résultat vide ou mode contexte).
+    Retourne toujours un ParsedResults.
+    - parsed.versions = () si aucun hit parsé (résultat vide ou mode contexte).
+    - parsed.summary = None si le footer moteur n'est pas matché par SUMMARY_RE.
     """
-    grouped = {}
-    summary = None
-    parsed_count = 0
+    versions_acc: dict[str, dict[str, list[Hit]]] = {}
+    summary: Summary | None = None
 
     for raw_line in output.splitlines():
         line = raw_line.rstrip("\n")
 
         m_summary = SUMMARY_RE.fullmatch(line)
         if m_summary:
-            summary = {
-                "count": m_summary.group("count"),
-                "versions": m_summary.group("versions"),
-                "duration": m_summary.group("duration").replace(",", "."),
-            }
+            summary = Summary(
+                count=int(m_summary.group("count")),
+                versions=int(m_summary.group("versions")),
+                duration=m_summary.group("duration").replace(",", "."),
+            )
             continue
 
         if not line or line.startswith("─") or line.startswith("═"):
@@ -219,18 +271,25 @@ def parse_compact_output(output: str) -> tuple[dict | None, dict | None]:
 
         version = m.group("version")
         path = m.group("path")
-        line_no = m.group("line")
+        line_no = int(m.group("line"))
         content = m.group("content").rstrip()
 
-        grouped.setdefault(version, {}).setdefault(path, []).append(
-            {"line": line_no, "content": content}
+        versions_acc.setdefault(version, {}).setdefault(path, []).append(
+            Hit(line=line_no, content=content)
         )
-        parsed_count += 1
 
-    if parsed_count == 0:
-        return None, summary
+    versions_typed = tuple(
+        VersionResult(
+            version=ver,
+            files=tuple(
+                FileResult(path=p, hits=tuple(hits))
+                for p, hits in files.items()
+            ),
+        )
+        for ver, files in versions_acc.items()
+    )
 
-    return grouped, summary
+    return ParsedResults(versions=versions_typed, summary=summary)
 
 
 def empty_template(**kwargs):
@@ -239,8 +298,7 @@ def empty_template(**kwargs):
         "query": "",
         "output": "",
         "error": "",
-        "parsed": None,
-        "summary": None,
+        "parsed": ParsedResults(versions=(), summary=None),
         "context": False,
         "latest": False,
         "all_versions": False,
@@ -279,18 +337,15 @@ def search():
 
     output = result.stdout.strip() or "No results."
 
-    parsed = None
-    summary = None
-
+    parsed = ParsedResults(versions=(), summary=None)
     if not options.get("context"):
-        parsed, summary = parse_compact_output(output)
+        parsed = parse_compact_output(output)
 
     return empty_template(
         query=query,
         output=output,
         error="",
         parsed=parsed,
-        summary=summary,
         **options,
     )
 
