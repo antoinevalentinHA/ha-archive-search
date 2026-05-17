@@ -17,6 +17,8 @@
       --error-border: #fb7185;
       --result-bg: #111827;
       --result-text: #e5e7eb;
+      --hit-bg: #fff7ed;
+      --hit-border: #fed7aa;
     }
 
     * { box-sizing: border-box; }
@@ -147,10 +149,117 @@
       font-size: 12px;
     }
 
+    .summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    
+    .badge {
+      display: inline-flex;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #3730a3;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    
+    .version-block {
+      margin-top: 18px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      background: #fff;
+    }
+    
+    .version-title {
+      padding: 12px 14px;
+      background: #f1f5f9;
+      border-bottom: 1px solid var(--border);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+    
+    details.file-block {
+      border-bottom: 1px solid var(--border);
+    }
+    
+    details.file-block:last-child {
+      border-bottom: 0;
+    }
+    
+    details.file-block summary {
+      cursor: pointer;
+      padding: 12px 14px;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+    }
+    
+    details.file-block summary::-webkit-details-marker {
+      display: none;
+    }
+    
+    .file-path {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+    
+    .file-count {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    
+    .hits {
+      padding: 0 14px 14px;
+      display: grid;
+      gap: 8px;
+    }
+    
+    .hit {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 10px;
+      align-items: start;
+      border: 1px solid var(--hit-border);
+      background: var(--hit-bg);
+      border-radius: 10px;
+      padding: 9px 10px;
+    }
+    
+    .line-no {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      color: #9a3412;
+      font-weight: 800;
+      font-size: 12px;
+      padding-top: 2px;
+    }
+    
+    .line-content {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
     @media (max-width: 700px) {
       body { padding: 14px; }
       h1 { font-size: 23px; }
       .panel, .result-panel { padding: 14px; }
+      .hit { grid-template-columns: 52px 1fr; }
+      details.file-block summary { display: block; }
+      .file-count { display: block; margin-top: 5px; }
     }
   </style>
 </head>
@@ -214,7 +323,41 @@
       </p>
     </section>
 
-    {% if output %}
+    {% if parsed %}
+      <section class="result-panel block">
+        {% if summary %}
+          <div class="summary">
+            <span class="badge">{{ summary.count }} results</span>
+            <span class="badge">{{ summary.versions }} version{% if summary.versions != "1" %}s{% endif %}</span>
+            <span class="badge">{{ summary.duration }} s</span>
+          </div>
+        {% endif %}
+    
+        {% for version, files in parsed.items() %}
+          <div class="version-block">
+            <div class="version-title">{{ version }}</div>
+    
+            {% for path, hits in files.items() %}
+              <details class="file-block" open>
+                <summary>
+                  <span class="file-path">{{ path }}</span>
+                  <span class="file-count">{{ hits|length }} occurrence{% if hits|length > 1 %}s{% endif %}</span>
+                </summary>
+    
+                <div class="hits">
+                  {% for hit in hits %}
+                    <div class="hit">
+                      <div class="line-no">L{{ hit.line }}</div>
+                      <pre class="line-content">{{ hit.content }}</pre>
+                    </div>
+                  {% endfor %}
+                </div>
+              </details>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </section>
+    {% elif output %}
       <section class="result-panel block">
         <pre class="raw">{{ output }}</pre>
       </section>

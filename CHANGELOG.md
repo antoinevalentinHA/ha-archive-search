@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.2.0] — 2026-05-17
+
+### Added
+
+#### Webapp
+
+- `webapp.py`: `parse_compact_output()` — structured parser for compact engine stdout.
+  - Parses each match line via `COMPACT_LINE_RE` into a `{version → {path → [hits]}}` hierarchy.
+  - Parses footer line via `SUMMARY_RE` into `{count, versions, duration}` summary dict.
+  - Returns `(None, summary)` on empty result set; webapp falls back to raw `&lt;pre&gt;` block.
+  - Context mode (`--mode context`) bypasses parser; raw fallback applies.
+- `webapp.py`: `COMPACT_LINE_RE`, `SUMMARY_RE` — compiled regex constants for stdout parsing.
+- `webapp.py`: `parsed` and `summary` passed to template on every search response.
+- `templates/index.html`: structured result renderer.
+  - KPI badge row: result count, version count, duration.
+  - Per-version block with monospace header.
+  - Per-file collapsible `&lt;details&gt;` block with occurrence count.
+  - Per-match hit row: line number + content, no horizontal scroll.
+  - Mobile-first layout: adaptive grid, block summary on narrow viewport.
+  - Raw `&lt;pre&gt;` fallback preserved for context mode and unparsable output.
+
+### Changed
+
+- Result rendering: compact mode now produces structured HTML instead of raw stdout dump.
+- No engine changes. No new dependencies.
+
+---
+
 ## [0.1.0] — 2026-05-16
 
 Initial release.
