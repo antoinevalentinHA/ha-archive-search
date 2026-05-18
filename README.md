@@ -16,6 +16,22 @@ The system is designed to operate on historical Home Assistant snapshots produce
 
 ---
 
+## Screenshots
+
+### Structured search UI
+
+Grouped rendering by version, file, and match occurrence.
+
+![Structured search UI](docs/screenshots/search-ui.png)
+
+### Structured Markdown export
+
+Deterministic Markdown export suitable for audits, sharing, and LLM-assisted investigation.
+
+![Structured Markdown export](docs/screenshots/markdown-export.png)
+
+---
+
 ## Philosophy
 
 Home Assistant is optimized for real-time automation and operational dashboards.
