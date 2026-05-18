@@ -56,3 +56,6 @@ where = ["src"]
 ha_archive_search = [
     "templates/*.html",
 ]
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"
