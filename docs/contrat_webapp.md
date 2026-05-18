@@ -46,7 +46,7 @@ Inherited from the parent contract. Restated here because they govern all techni
 - **No free shell**: the user query is never interpreted as a system command.
 - **No public exposure**: LAN or VPN only.
 - **Server-side bounded results**: bounds are enforced by the CLI engine, never delegated to the web client.
-- **Engine authority**: the webapp never reimplements grep logic. All search passes through `engine.py` via `subprocess`. The export does not interpret, aggregate, or reformat the engine stdout.
+- **Engine authority**: the webapp never reimplements grep logic. All search passes through `engine.py` via `subprocess`. The webapp may parse the engine compact stdout into a typed presentation model, but only for structural rendering. It does not re-run search logic, infer domain meaning, rank, filter, or reconstruct historical dependencies.
 
 ---
 
@@ -216,10 +216,11 @@ Encapsulate the exact CLI engine stdout in a minimal downloadable Markdown docum
 
 1. validates form parameters using the same rules as `/search`;
 2. invokes `engine.py` via `subprocess.run()` with the same flags as `/search`;
-3. encapsulates stdout in a Markdown envelope;
-4. returns the file to the browser as an attachment.
+3. parses compact stdout into the same typed presentation model used by `/search`;
+4. renders a structured Markdown document from that model;
+5. returns the file to the browser as an attachment.
 
-The webapp does not interpret, parse, or reformat the engine stdout. It encapsulates it.
+The webapp performs structural parsing of the compact engine stdout for presentation only. It does not reinterpret search results, recompute matches, infer business meaning, rank, filter, or enrich the engine output.
 
 ### Output format
 
@@ -316,11 +317,11 @@ Renderer boundary:
 
 The UI presents, groups, structures, and improves readability. It does not recompute states, does not interpret business contracts, and does not reconstruct domain dependencies.
 
-The text produced by the CLI engine is the truth. The UI displays it; it does not parse it. The export encapsulates it; it does not rewrite it.
+The text produced by the CLI engine is the truth. The webapp may parse the compact stdout into a typed presentation model for HTML and Markdown rendering. This parsing is structural only: grouping by version, file and hit, extracting line numbers, hit content, and footer status. It does not rewrite search semantics or infer domain meaning.
 
 ### Result display
 
-Results from `/search` are rendered in a `<pre>` block with the raw engine output. No re-parsing, no structured HTML reconstruction of search content in v1.
+Results from `/search` are rendered from the typed presentation model when compact mode is used. Context mode and unparsed output fall back to raw rendering.
 
 ### Error handling
 

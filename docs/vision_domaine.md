@@ -75,7 +75,7 @@ Hard contracts of the domain. All evolutions must preserve them.
 - **No public exposure**: LAN or VPN access only. No public reverse proxy, no external exposure.
 - **Bounded results**: result count, context depth, and search duration are server-enforced hard limits, non-negotiable by the client.
 - **Containerized execution environment**: the web service mounts `versions/` and the CLI engine read-only and has no other filesystem access.
-- **Engine authority**: the webapp never reimplements search logic. All search passes through the CLI engine. Markdown export wraps the engine stdout without parsing, reformatting, or aggregating it.
+- **Engine authority**: the webapp never reimplements search logic. All search passes through the CLI engine. The webapp may parse compact stdout into a typed presentation model for structural rendering, without re-running search logic, filtering results, ranking matches, or inferring domain meaning.
 
 ---
 
@@ -135,7 +135,7 @@ interactive search  → HTML display (/search)
 markdown export     → .md download (/export)
 ```
 
-The Markdown export produces a **minimal envelope** around the exact CLI engine stdout: a parameter header, the raw stdout in a `text` block, and an identification footer. No structuring or reformatting of search content is performed.
+The Markdown export produces a **structured presentation** derived from the CLI engine compact stdout: a parameter header, a typed summary, grouped results by version and file, and an identification footer. This structuring is presentational only and does not change search semantics.
 
 Use cases:
 
@@ -245,13 +245,12 @@ When results are truncated, the output indicates it explicitly. This indication 
 
 - graphical version selection;
 - multi-version search with grouping;
-- structured Markdown export (by version / file / match);
 - direct link to file or result;
 - grep comparison between two versions;
 - entity dependency search;
 - entity-to-file consumption graph.
 
-Structured Markdown export would require structured CLI engine output (e.g. `--output-format json`). As long as the engine produces a plain text stream, the export remains a minimal envelope without interpretation.
+Structured Markdown export is now produced by the webapp from the compact engine stdout. A future machine-oriented engine output format (for example JSON or NDJSON) remains possible, but is not required for the current human-readable structured Markdown export.
 
 ---
 
