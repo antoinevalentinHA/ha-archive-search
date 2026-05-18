@@ -135,7 +135,6 @@ Advanced users may replace this with a custom UID:GID mapping.
 src/        source code
 docker/     Dockerfile and Docker Compose configuration
 docs/       domain vision and implementation contracts
-tests/      contractual test suite
 ```
 
 Documentation contracts are located in `docs/`.
