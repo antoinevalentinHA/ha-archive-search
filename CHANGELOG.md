@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.3.1] - 2026-05-18
+
+### Fixed
+
+- `webapp.py`: preserve trailing whitespace in parsed hit content. The compact parser no longer strips meaningful trailing spaces from the engine payload.
+- `webapp.py`: preserve engine integrity footer signals for truncated and timeout searches.
+  - `results truncated: ...` is now parsed as `Summary(status="truncated", ...)`.
+  - `query timeout: ...` is now parsed as `Summary(status="timeout", ...)`.
+  - `Summary parsing: failed` is now reserved for genuinely unrecognized footer drift.
+- `templates/index.html`: render dedicated status badges for truncated and timeout summaries.
+
+### Changed
+
+- `webapp.py`: `Summary` now carries explicit footer status metadata:
+  - `status`
+  - `count`
+  - `total`
+  - `versions`
+  - `duration`
+  - `raw_footer`
+- `docs/contrat_webapp.md`: aligned the webapp doctrine with the v0.3 structured rendering model.
+- `docs/vision_domaine.md`: removed outdated statements describing Markdown export as a raw minimal envelope.
+
+### Unchanged
+
+- `engine.py`: no change.
+- No new CLI flag, output mode, or dependency.
+- Search semantics remain engine-owned.
+- Webapp parsing remains structural only: no ranking, filtering, inference, or historical correlation.
+
+---
 ## [0.3.0] — 2026-05-18
 
 ### Changed
