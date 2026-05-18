@@ -11,7 +11,7 @@ from pathlib import Path
 
 from flask import Flask, Response, jsonify, redirect, render_template, request, url_for
 
-from ha_archive_search import __version__
+from ha_archive_search._version import __version__
 
 APP_NAME = "ha-archive-search"
 VERSIONS_ROOT = Path(os.environ.get("HA_SEARCH_VERSIONS_ROOT", "/versions"))

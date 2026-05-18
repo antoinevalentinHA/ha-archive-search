@@ -71,6 +71,24 @@ Search engine
 
 ---
 
+## Markdown export
+
+`POST /export` produces a structured Markdown document derived from the engine output. Layout:
+
+- `## Query` — search parameters and export timestamp.
+- `## Summary` — result count, version count, duration (engine footer). Always present: if the engine footer is not parsable, the block is emitted with a `Summary parsing: failed` diagnostic line.
+- `## Results` — per-version sections, per-file subsections with occurrence counts, per-hit bullets.
+
+File naming: `ha_archive_search_<slug>_<YYYY-MM-DD_HH-MM>.md`.
+
+The export is generated in memory and streamed as `text/markdown; charset=utf-8`. No file is written on the host.
+
+Context mode falls back to a raw fenced block under `## Results`. The `## Summary` block follows the same diagnostic rule.
+
+Empty results: a single `_No results._` line under `## Results`. `## Summary` is still emitted, either nominally if the engine produced a zero-result footer, or with the diagnostic line otherwise.
+
+---
+
 ## Features
 
 ### Current
