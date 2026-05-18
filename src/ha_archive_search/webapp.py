@@ -378,7 +378,7 @@ def parse_compact_output(output: str) -> ParsedResults:
         version = m.group("version")
         path = m.group("path")
         line_no = int(m.group("line"))
-        content = m.group("content").rstrip()
+        content = m.group("content")
 
         versions_acc.setdefault(version, {}).setdefault(path, []).append(
             Hit(line=line_no, content=content)
