@@ -166,6 +166,21 @@
       font-weight: 700;
     }
     
+    .badge-status {
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .badge-status-truncated {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    
+    .badge-status-timeout {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    
     .version-block {
       margin-top: 18px;
       border: 1px solid var(--border);
@@ -327,9 +342,21 @@
       <section class="result-panel block">
         {% if parsed.summary %}
           <div class="summary">
-            <span class="badge">{{ parsed.summary.count }} results</span>
-            <span class="badge">{{ parsed.summary.versions }} version{% if parsed.summary.versions != 1 %}s{% endif %}</span>
-            <span class="badge">{{ parsed.summary.duration }} s</span>
+            {% if parsed.summary.status == "nominal" %}
+              <span class="badge">{{ parsed.summary.count }} results</span>
+              <span class="badge">{{ parsed.summary.versions }} version{% if parsed.summary.versions != 1 %}s{% endif %}</span>
+              <span class="badge">{{ parsed.summary.duration }} s</span>
+            {% elif parsed.summary.status == "truncated" %}
+              <span class="badge badge-status badge-status-truncated">truncated</span>
+              <span class="badge">{{ parsed.summary.count }} displayed</span>
+              <span class="badge">at least {{ parsed.summary.total }} total</span>
+              <span class="badge">{{ parsed.summary.duration }} s</span>
+            {% elif parsed.summary.status == "timeout" %}
+              <span class="badge badge-status badge-status-timeout">timeout</span>
+              <span class="badge">{{ parsed.summary.count }} partial</span>
+              <span class="badge">{{ parsed.summary.versions }} version{% if parsed.summary.versions != 1 %}s{% endif %}</span>
+              <span class="badge">{{ parsed.summary.duration }} s</span>
+            {% endif %}
           </div>
         {% endif %}
     

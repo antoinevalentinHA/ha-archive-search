@@ -8,6 +8,7 @@ import threading
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from flask import Flask, Response, jsonify, redirect, render_template, request, url_for
 
@@ -33,8 +34,44 @@ COMPACT_LINE_RE = re.compile(
     r"(?P<content>.*)$"
 )
 
-SUMMARY_RE = re.compile(
-    r"(?P<count>\d+)\s+results?\s+across\s+(?P<versions>\d+)\s+versions?\s+•\s+duration\s+(?P<duration>[0-9.,]+)\s+s"
+# ---------------------------------------------------------------------------
+# Footer recognition cascade (v0.3.1).
+#
+# The engine emits three distinct footer formats (engine.py L726-748):
+#   - nominal   : "N results across M versions  •  duration D s"
+#   - truncated : "results truncated: N displayed out of at least M  •  duration D s"
+#   - timeout   : "query timeout: N partial results (not guaranteed) across M versions  •  duration D s"
+#
+# The three regex are mutually exclusive by prefix:
+#   - nominal   starts with \d+
+#   - truncated starts with "results truncated:"
+#   - timeout   starts with "query timeout:"
+#
+# A line matches at most one regex. The cascade order is canonical
+# (most frequent first) but the result does not depend on order.
+#
+# If none match, the footer is genuine engine drift and the summary
+# remains None (rendered as "Summary parsing: failed").
+# ---------------------------------------------------------------------------
+
+SUMMARY_RE_NOMINAL = re.compile(
+    r"^(?P<count>\d+)\s+results?\s+"
+    r"across\s+(?P<versions>\d+)\s+versions?\s+"
+    r"•\s+duration\s+(?P<duration>[0-9.,]+)\s+s$"
+)
+
+SUMMARY_RE_TRUNCATED = re.compile(
+    r"^results\s+truncated:\s+"
+    r"(?P<count>\d+)\s+displayed\s+"
+    r"out\s+of\s+at\s+least\s+(?P<total>\d+)\s+"
+    r"•\s+duration\s+(?P<duration>[0-9.,]+)\s+s$"
+)
+
+SUMMARY_RE_TIMEOUT = re.compile(
+    r"^query\s+timeout:\s+"
+    r"(?P<count>\d+)\s+partial\s+results?\s+\(not\s+guaranteed\)\s+"
+    r"across\s+(?P<versions>\d+)\s+versions?\s+"
+    r"•\s+duration\s+(?P<duration>[0-9.,]+)\s+s$"
 )
 
 
@@ -80,9 +117,37 @@ class VersionResult:
 
 @dataclass(frozen=True)
 class Summary:
+    """Footer moteur typé (v0.3.1).
+
+    status :
+      - "nominal"   : le moteur a terminé normalement, comptes exacts.
+      - "truncated" : le moteur a atteint --max-results, comptes partiels,
+                      total minoré disponible via `total`.
+      - "timeout"   : le moteur a dépassé --timeout, comptes partiels non
+                      garantis ("not guaranteed").
+
+    count    : nombre de résultats affichés. Toujours présent.
+
+    total    : "out of at least N". Présent uniquement pour status="truncated".
+               None pour nominal et timeout (le moteur ne l'émet pas).
+
+    versions : nombre de versions parcourues. Présent pour nominal et timeout.
+               None pour status="truncated" (le moteur ne l'émet pas dans ce
+               footer — engine.py L737-742).
+
+    duration : durée en secondes telle qu'émise par le moteur. Toujours
+               présente. Locale-aware via .replace(",", ".") préservé de v0.3.0.
+
+    raw_footer : ligne footer brute reçue du moteur. Source de vérité
+                 textuelle préservée pour audit. Non exposée dans les rendus
+                 v0.3.1 ; champ interne uniquement.
+    """
+    status: Literal["nominal", "truncated", "timeout"]
     count: int
-    versions: int
+    total: int | None
+    versions: int | None
     duration: str
+    raw_footer: str | None = None
 
 
 @dataclass(frozen=True)
@@ -144,6 +209,56 @@ def markdown_fence_for(content: str) -> str:
     return "`" * max(3, max_run + 1)
 
 
+def _try_match_footer(line: str) -> Summary | None:
+    """Tente de reconnaître `line` comme un footer moteur connu.
+
+    Applique la cascade SUMMARY_RE_NOMINAL → SUMMARY_RE_TRUNCATED →
+    SUMMARY_RE_TIMEOUT. Les trois regex sont mutuellement exclusives par
+    préfixe ; l'ordre est canonique mais le résultat ne dépend pas de l'ordre.
+
+    Retourne :
+      - Summary(status="nominal" | "truncated" | "timeout", ...) si reconnu.
+      - None si aucune regex ne matche (drift moteur réel).
+
+    raw_footer est toujours renseigné avec la ligne reçue (modulo le rstrip("\\n")
+    appliqué en amont par les appelants).
+    """
+    m = SUMMARY_RE_NOMINAL.fullmatch(line)
+    if m:
+        return Summary(
+            status="nominal",
+            count=int(m.group("count")),
+            total=None,
+            versions=int(m.group("versions")),
+            duration=m.group("duration").replace(",", "."),
+            raw_footer=line,
+        )
+
+    m = SUMMARY_RE_TRUNCATED.fullmatch(line)
+    if m:
+        return Summary(
+            status="truncated",
+            count=int(m.group("count")),
+            total=int(m.group("total")),
+            versions=None,
+            duration=m.group("duration").replace(",", "."),
+            raw_footer=line,
+        )
+
+    m = SUMMARY_RE_TIMEOUT.fullmatch(line)
+    if m:
+        return Summary(
+            status="timeout",
+            count=int(m.group("count")),
+            total=None,
+            versions=int(m.group("versions")),
+            duration=m.group("duration").replace(",", "."),
+            raw_footer=line,
+        )
+
+    return None
+
+
 def render_markdown_query(query: str, options: dict[str, bool]) -> str:
     """Rend la section ## Query du Markdown export."""
     mode = "context" if options.get("context") else "compact"
@@ -164,21 +279,56 @@ def render_markdown_summary(summary: Summary | None) -> str:
     """Rend la section ## Summary, toujours présente.
 
     summary None → bloc rendu avec ligne diagnostic `- Summary parsing: failed`.
-    summary présent → bloc rendu nominalement.
+                   Réservé aux cas de drift moteur réel (aucune des trois
+                   regex SUMMARY_RE_* ne matche).
+    summary présent → bloc rendu selon `status`:
+      - "nominal"   : Results / Versions / Duration (Status omis, doctrine
+                      "le défaut ne se signale pas").
+      - "truncated" : Status / Results (N displayed) / Total (at least M) / Duration.
+      - "timeout"   : Status / Results (N partial, not guaranteed) / Versions / Duration.
 
-    Le diagnostic explicite est doctrinal : v0.2.x masquait silencieusement
-    un drift de wording moteur. v0.3.0 le rend lisible à la lecture du .md.
+    Doctrinal : truncated et timeout ne sont plus rétrogradés en
+    "Summary parsing: failed". Ce sont des signaux d'intégrité émis par
+    le moteur, identifiés et rendus comme tels.
     """
     if summary is None:
         return "## Summary\n\n- Summary parsing: `failed`\n\n"
-    return (
-        "## Summary\n"
-        "\n"
-        f"- Results: {markdown_inline_code(str(summary.count))}\n"
-        f"- Versions: {markdown_inline_code(str(summary.versions))}\n"
-        f"- Duration: {markdown_inline_code(summary.duration + ' s')}\n"
-        "\n"
-    )
+
+    if summary.status == "nominal":
+        return (
+            "## Summary\n"
+            "\n"
+            f"- Results: {markdown_inline_code(str(summary.count))}\n"
+            f"- Versions: {markdown_inline_code(str(summary.versions))}\n"
+            f"- Duration: {markdown_inline_code(summary.duration + ' s')}\n"
+            "\n"
+        )
+
+    if summary.status == "truncated":
+        return (
+            "## Summary\n"
+            "\n"
+            f"- Status: {markdown_inline_code('truncated')}\n"
+            f"- Results: {markdown_inline_code(str(summary.count) + ' displayed')}\n"
+            f"- Total: {markdown_inline_code('at least ' + str(summary.total))}\n"
+            f"- Duration: {markdown_inline_code(summary.duration + ' s')}\n"
+            "\n"
+        )
+
+    if summary.status == "timeout":
+        return (
+            "## Summary\n"
+            "\n"
+            f"- Status: {markdown_inline_code('timeout')}\n"
+            f"- Results: {markdown_inline_code(str(summary.count) + ' partial (not guaranteed)')}\n"
+            f"- Versions: {markdown_inline_code(str(summary.versions))}\n"
+            f"- Duration: {markdown_inline_code(summary.duration + ' s')}\n"
+            "\n"
+        )
+
+    # Défensif : status inattendu (ne devrait pas être atteignable depuis
+    # _try_match_footer qui ne produit que les trois statuts ci-dessus).
+    return "## Summary\n\n- Summary parsing: `failed`\n\n"
 
 
 def render_markdown_results(parsed: ParsedResults, fallback_stdout: str) -> str:
@@ -193,9 +343,10 @@ def render_markdown_results(parsed: ParsedResults, fallback_stdout: str) -> str:
     Arbitrage §3.4 / §11.3 : §3.4 enverrait toute branche "versions vide
     + stdout non vide" sur fence brut. §11.3 attend "_No results._" pour
     le cas "compact zéro-hit avec footer parsé". On résout en utilisant
-    SUMMARY_RE comme discriminant : si le stdout entier strip est
-    uniquement le footer, c'est compact zéro-hit → "_No results._". Sinon
-    (stdout multi-lignes typique du mode contexte) → fence brut.
+    la cascade SUMMARY_RE_* comme discriminant : si le stdout entier strip
+    est uniquement un footer reconnu (nominal, truncated ou timeout), c'est
+    compact zéro-hit → "_No results._". Sinon (stdout multi-lignes typique
+    du mode contexte) → fence brut.
     """
     if parsed.versions:
         lines = ["## Results", ""]
@@ -215,8 +366,8 @@ def render_markdown_results(parsed: ParsedResults, fallback_stdout: str) -> str:
     stripped = fallback_stdout.strip()
     if not stripped or stripped == "No results.":
         return "## Results\n\n_No results._\n"
-    if SUMMARY_RE.fullmatch(stripped):
-        # Compact zéro-hit : stdout entier = footer.
+    if _try_match_footer(stripped) is not None:
+        # Compact zéro-hit : stdout entier = footer (nominal/truncated/timeout).
         return "## Results\n\n_No results._\n"
 
     fence = markdown_fence_for(fallback_stdout)
@@ -235,15 +386,12 @@ def build_markdown_export(query: str, options: dict[str, bool], stdout: str) -> 
         parsed = parse_compact_output(stdout)
     else:
         # Mode contexte : extraction best-effort du summary uniquement.
+        # Même cascade que parse_compact_output() — symétrie compact/contexte.
         summary: Summary | None = None
         for raw_line in stdout.splitlines():
-            m = SUMMARY_RE.fullmatch(raw_line.rstrip("\n"))
-            if m:
-                summary = Summary(
-                    count=int(m.group("count")),
-                    versions=int(m.group("versions")),
-                    duration=m.group("duration").replace(",", "."),
-                )
+            candidate = _try_match_footer(raw_line.rstrip("\n"))
+            if candidate is not None:
+                summary = candidate
                 break
         parsed = ParsedResults(versions=(), summary=summary)
 
@@ -351,7 +499,11 @@ def parse_compact_output(output: str) -> ParsedResults:
 
     Retourne toujours un ParsedResults.
     - parsed.versions = () si aucun hit parsé (résultat vide ou mode contexte).
-    - parsed.summary = None si le footer moteur n'est pas matché par SUMMARY_RE.
+    - parsed.summary = None si aucune des trois regex SUMMARY_RE_NOMINAL /
+      SUMMARY_RE_TRUNCATED / SUMMARY_RE_TIMEOUT ne matche (drift moteur réel).
+      Les cas truncated et timeout sont reconnus depuis v0.3.1 et produisent
+      un Summary typé avec le statut correspondant — ils ne sont plus
+      rétrogradés en "Summary parsing: failed".
     """
     versions_acc: dict[str, dict[str, list[Hit]]] = {}
     summary: Summary | None = None
@@ -359,13 +511,9 @@ def parse_compact_output(output: str) -> ParsedResults:
     for raw_line in output.splitlines():
         line = raw_line.rstrip("\n")
 
-        m_summary = SUMMARY_RE.fullmatch(line)
-        if m_summary:
-            summary = Summary(
-                count=int(m_summary.group("count")),
-                versions=int(m_summary.group("versions")),
-                duration=m_summary.group("duration").replace(",", "."),
-            )
+        candidate = _try_match_footer(line)
+        if candidate is not None:
+            summary = candidate
             continue
 
         if not line or line.startswith("─") or line.startswith("═"):
